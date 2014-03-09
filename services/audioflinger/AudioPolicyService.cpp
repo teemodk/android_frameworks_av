@@ -96,9 +96,6 @@ AudioPolicyService::AudioPolicyService()
     if (rc)
         return;
 
-    rc = hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&mPowerModule);
-    ALOGW_IF(rc, "couldn't get power module (%s)", strerror(-rc));
-
     ALOGI("Loaded audio policy from %s (%s)", module->name, module->id);
 
     // load audio pre processing modules
@@ -249,7 +246,6 @@ status_t AudioPolicyService::startOutput(audio_io_handle_t output,
     }
     ALOGV("startOutput()");
     Mutex::Autolock _l(mLock);
-    setPowerHint(true);
     return mpAudioPolicy->start_output(mpAudioPolicy, output, stream, session);
 }
 
@@ -271,9 +267,7 @@ status_t  AudioPolicyService::doStopOutput(audio_io_handle_t output,
 {
     ALOGV("doStopOutput from tid %d", gettid());
     Mutex::Autolock _l(mLock);
-    status_t ret = mpAudioPolicy->stop_output(mpAudioPolicy, output, stream, session);
-    setPowerHint(false);
-    return ret;
+    return mpAudioPolicy->stop_output(mpAudioPolicy, output, stream, session);
 }
 
 void AudioPolicyService::releaseOutput(audio_io_handle_t output)
@@ -360,7 +354,7 @@ status_t AudioPolicyService::startInput(audio_io_handle_t input)
         return NO_INIT;
     }
     Mutex::Autolock _l(mLock);
-    setPowerHint(true);
+
     return mpAudioPolicy->start_input(mpAudioPolicy, input);
 }
 
@@ -371,9 +365,7 @@ status_t AudioPolicyService::stopInput(audio_io_handle_t input)
     }
     Mutex::Autolock _l(mLock);
 
-    status_t ret = mpAudioPolicy->stop_input(mpAudioPolicy, input);
-    setPowerHint(false);
-    return ret;
+    return mpAudioPolicy->stop_input(mpAudioPolicy, input);
 }
 
 void AudioPolicyService::releaseInput(audio_io_handle_t input)
@@ -590,13 +582,6 @@ status_t AudioPolicyService::queryDefaultPreProcessing(int audioSession,
     }
     *count = effects.size();
     return status;
-}
-
-void AudioPolicyService::setPowerHint(bool active) {
-    if (mPowerModule && mPowerModule->powerHint) {
-        mPowerModule->powerHint(mPowerModule, POWER_HINT_AUDIO,
-                active ? (void *)"state=1" : (void *)"state=0");
-    }
 }
 
 void AudioPolicyService::binderDied(const wp<IBinder>& who) {
